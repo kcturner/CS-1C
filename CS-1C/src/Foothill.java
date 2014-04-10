@@ -1,467 +1,250 @@
 /*
- *  Foothill CS 1B
- *  Source Program for Assignment 10
- *  Written by Kevin Turner 03/21/2014
+ *  Foothill CS 1C
+ *  Source Program for Assignment 1
+ *  Written by Kevin Turner 04/16/2014
  */
 
+// Main file for iTunes project.  See Read Me file for details
+// CS 1C, Foothill College, Michael Loceff, creator
+
+import cs_1c.*;
 import java.util.*;
 import java.text.*;
 
+//------------------------------------------------------
 public class Foothill
 {
    // -------  main --------------
    public static void main(String[] args) throws Exception
    {
-      Fundamentals diatonic = new Fundamentals();
+      // how we read the data from files
+      iTunesEntryReader tunesInput = new iTunesEntryReader("itunes_file.txt");
+      int arraySize;
 
-      System.out.println("diatonic chords, one key\n" + 
-         diatonic.deccodeDiatonicTriads("f#")+ "\n");
+      // how we test the success of the read:
+      if (tunesInput.readError())
+      {
+         System.out.println("couldn't open " + tunesInput.getFileName()
+            + " for input.");
+         return;
+      }
 
-      System.out.println("decode scale:\n" + diatonic.decodeMajScale("db") 
-            + "\n\n");
+      System.out.println(tunesInput.getFileName());
+      System.out.println(tunesInput.getNumTunes());
 
-      System.out.println("all keys\n" + diatonic.displayAllKeys());
+      // create an array of objects for our own use:
+      arraySize = tunesInput.getNumTunes();
+      iTunesEntry[] tunesArray = new iTunesEntry[arraySize];
+      for (int k = 0; k < arraySize; k++)
+         tunesArray[k] = tunesInput.getTune(k);
 
-      System.out.println("\n diatonic chords, one key\n" + 
-        diatonic.deccodeDiatonicTriads("b"));
+      // how we time our algorithms -------------------------
+      Date startTime, stopTime;
+      NumberFormat tidy = NumberFormat.getInstance(Locale.US);
+      tidy.setMaximumFractionDigits(4);
+      
+      // show the array, unsorted
+      for (int k = 0; k < arraySize; k++)
+         displayOneTune(tunesArray[k]);
+      System.out.println();
+      
+      //get start time
+      startTime = new Date();
+      
+      // sort
+      iTunesEntry.setSortType(iTunesEntry.SORT_BY_TIME);
+      FoothillSort.<iTunesEntry>arraySort(tunesArray);
 
-      System.out.println("\nAll triad chords\n" + 
-         diatonic.displayAllDiatonicChords());
+      // do something interesting like search or sort or build a hash-table, then...
+
+      // how we determine the time elapsed -------------------
+      stopTime = new Date();
+
+      // show the sorted list
+      for (int k = 0; k < arraySize; k++)
+         displayOneTune(tunesArray[k]);
+      System.out.println();
+
+      // report algorithm time
+      System.out.println("\nAlgorithm Elapsed Time: "
+         + tidy.format((stopTime.getTime() - startTime.getTime()) / 1000.)
+         + " seconds.\n");
+   }
+
+   static void displayOneTune(iTunesEntry tune)
+   {
+      System.out.println(tune.getArtist() + " | "
+         + tune.getTitle() + " | "
+         // cout << tune.GetNTime() << " | "; 
+         + " " + tune.convertTimeToString());
    }
 }
 
-// class Fundamental
-class Fundamentals
-{
-   //Class constants
-   private final static int MAX_SIZE = 12;
-   String key, transpoKey;
-   int k, i, keyNum;
-   boolean errorFlag;
-   //determines which array to build the scale from
-   boolean sharp, flat, dblSharp;
 
-   public Fundamentals()
-   {
-      key = "C";
-      transpoKey = "C";
-      reset();
-   }
-
-   //triads
-   public Fundamentals(String key)
-   {
-      this.key = key;
-      this.transpoKey = "C";
-      reset();
-   }
-
-   public Fundamentals(String key, String transpoKey)
-   {
-      setKey(key);
-      reset();
-   }
-
-   //for C and keys using sharps (through B)
-   private static String[] chromaticS = {"C", "C#", "D", "D#", "E", "F",
-      "F#", "G", "G#", "A", "A#", "B","C", "C#", "D", "D#", "E", "F",
-      "F#", "G", "G#", "A", "A#", "B"};
-
-   //Key of B special case for including E#
-   private static String[] fSharp = {"F#", "G#", "A#", "B","C#", "D#", "E#"};
-
-   //for keys using flats
-   private static String[] chromaticF = {"C", "Db", "D", "Eb", "E", "F",
-      "Gb", "G", "Ab", "A", "Bb", "B","C", "Db", "D", "Eb", "E", "F",
-      "Gb", "G", "Ab", "A", "Bb", "B"};
-
-   private static String[] chordType = {"", "min", "dim", "aug", "Maj7", "min7",
-      "dim7", "aug7", "7", "9", "sus", "7#9", "min7b5"};
-
-   private static String[] circleFifths = {"C", "G", "D", "A", "E", "B", "F#", 
-      "Db", "Ab", "Eb", "Bb", "F"};
-
-   public boolean setKey(String key)
-   {
-      String upVal;            // for upcasing string
-
-      // convert to uppercase
-      if(key.length() > 1)
-      {
-         upVal = Character.toString(Character.toUpperCase(key.charAt(0))) 
-               + Character.toString(key.charAt(1));
-         this.key = upVal;
-      }
-      else
-      {
-         upVal = key.toUpperCase();
-         this.key = upVal;
-      }
-
-      if ( !isValidKey(key))
-      {
-         errorFlag = true;
-         return false;
-      }
-      // else implied
-      errorFlag = false;
-      //      this.key = upVal;
-      return true;
-   }
-
-   // helpers
-   private boolean isValidKey(String key)
-   {
-      String upVal;
-
-      // convert to uppercase
-      if(key.length() > 1)
-         upVal = Character.toString(Character.toUpperCase(key.charAt(0))) 
-         + Character.toString(key.charAt(1));
-      else
-         upVal = key.toUpperCase();
-
-      // check for validity
-      if (upVal.equals("C") || upVal.equals("G") || upVal.equals("D") 
-            || upVal.equals("A") || upVal.equals("E") || upVal.equals("B"))
-      {
-         sharp = true;
-         return true;
-      }
-      if (upVal.equals("F") || upVal.equals("Bb") || upVal.equals("Eb") 
-            || upVal.equals("Ab") || upVal.equals("Db") || upVal.equals("Gb"))
-      {
-         flat = true;
-         return true;
-      }
-      if(upVal.equals("F#"))
-      {
-         dblSharp = true;
-         return true;
-      }
-      else
-         return false;
-   }
-
-   // accessors
-   public String getKey(){ return key; }
-
-   public String getTranspoKey(){ return transpoKey; }//future use
-
-   public boolean getErrorFlag()
-   {
-      return errorFlag;
-   }
-
-   private void reset()
-   {
-      sharp = false;
-      flat = false;
-      dblSharp = false;
-   }
-
-   private int tonicToInt(String key)
-   {
-      setKey(key);
-      if(key.equals("C"))
-         return 0;
-      if(key.equals("C#"))
-         return 1;
-      if(key.equals("Db"))
-         return 1;
-      if(key.equals("D"))
-         return 2;
-      if(key.equals("D#"))
-         return 3;
-      if(key.equals("Eb"))
-         return 3;
-      if(key.equals("E"))
-         return 4;
-      if(key.equals("F"))
-         return 5;
-      if(key.equals("F#"))
-         return 6;
-      if(key.equals("Gb"))
-         return 6;
-      if(key.equals("G"))
-         return 7;
-      if(key.equals("G#"))
-         return 8;
-      if(key.equals("Ab"))
-         return 8;
-      if(key.equals("A"))
-         return 9;
-      if(key.equals("A#"))
-         return 10;
-      if(key.equals("Bb"))
-         return 10;
-      if(key.equals("B"))
-         return 11;
-      return 0;
-   }
-
-   //Gets key as an int for looping
-   private String decodeDiatonicSharps(int tonic)
-   {
-      String chords = "";
-      for(k = 0; k < MAX_SIZE; k++, tonic++)
-      {
-         if(k == 0 || k == 5 || k ==7)
-            chords+= chromaticS[tonic] + chordType[0] + " ";
-         if(k == 2 || k == 4 || k ==9)
-            chords+= chromaticS[tonic] + chordType[1] + " ";
-         if(k == 11)
-            chords+= chromaticS[tonic] + chordType[2] + " ";
-      }
-      return chords;
-   }
-   private String decodeDiatonicFsharp()
-   {
-      String chords = "";
-
-      for(k = 0; k < 7; k++)
-      {
-         if(k == 0 || k == 3 || k == 4)
-            chords += fSharp[k] + chordType[0] + " ";
-         if(k == 1 || k == 2 || k == 5)
-            chords += fSharp[k] + chordType[1] + " ";
-         if(k == 6)
-            chords += fSharp[k] + chordType[2] + " ";
-      }
-      return chords;
-   }
-
-   private String decodeDiatonicFlats(int tonic)
-   {
-      String chords = "";
-      for(k = 0; k < MAX_SIZE; k++, tonic++)
-      {
-         if(k == 0 || k == 5 || k ==7)
-            chords+= chromaticF[tonic] + chordType[0] + " ";
-         if(k == 2 || k == 4 || k == 9)
-            chords+= chromaticF[tonic] + chordType[1] + " ";
-         if(k == 11)
-            chords+= chromaticF[tonic] + chordType[2] + " ";
-      }
-      return chords;
-   }
-
-   //Gets key as an String and generates a list of diatonic triads for a key
-   public String deccodeDiatonicTriads(String key)
-   {
-      if(!setKey(key))
-         return "Invalid Key";
-
-      int temp;
-      temp = tonicToInt(this.key);
-      String chords = "";
-
-      if(sharp)
-      {
-         for(k = 0; k < MAX_SIZE; k++, temp++)
-         {
-            if(k == 0 || k == 5 || k ==7)
-               chords+= chromaticS[temp] + chordType[0] + " ";
-            if(k == 2 || k == 4 || k ==9)
-               chords+= chromaticS[temp] + chordType[1] + " ";
-            if(k == 11)
-               chords+= chromaticS[temp] + chordType[2] + " ";
-         }
-         return chords;
-      }
-
-      if(flat)
-      {
-         for(k = 0; k < MAX_SIZE; k++, temp++)
-         {
-            if(k == 0 || k == 5 || k ==7)
-               chords+= chromaticF[temp] + chordType[0] + " ";
-            if(k == 2 || k == 4 || k == 9)
-               chords+= chromaticF[temp] + chordType[1] + " ";
-            if(k == 11)
-               chords+= chromaticF[temp] + chordType[2] + " ";
-         }
-         return chords;
-      }
-      if(dblSharp)
-         for(k = 0; k < 7; k++)
-         {
-            if(k == 0 || k == 4 || k == 5)
-               chords += fSharp[k] + chordType[0] + " ";
-            if(k == 2 || k == 3 || k == 6)
-               chords += fSharp[k] + chordType[1] + " ";
-            if(k == 7)
-               chords += fSharp[k] + chordType[2] + " ";
-         }
-      return chords;
-   }
-
-   //Gets key as a String from client
-   public String decodeMajScale(String key)
-   {
-      if(!setKey(key))
-         return "Invalid Key";
-
-      int temp;
-      temp = tonicToInt(this.key);
-      String majKey = "";
-
-      if(sharp)
-      {
-         for(k = 0; k < MAX_SIZE; k++, temp++)
-
-            if(k == 0 || k == 2 || k == 4 || k == 5 || k == 7 || k == 9 
-            || k == 11)
-               majKey+= chromaticS[temp] + " ";
-         return majKey;
-      }
-      if(flat)
-      {
-         for(k = 0; k < MAX_SIZE; k++, temp++)
-            if(k == 0 || k == 2 || k == 4 || k == 5 || k == 7 || k == 9 
-            || k == 11) 
-               majKey+= chromaticF[temp] + " ";
-         return majKey;
-      }
-      if(dblSharp)
-         for(k = 0; k < 7; k++)
-            majKey += fSharp[k] + " ";
-      return majKey;
-   }
-
-   //Gets key as an int for looping
-   private String decodeMajSharps(int tonic)
-   {
-      String majKey = "";
-      for(k = 0; k < MAX_SIZE; k++, tonic++)
-      {
-         if(k == 0 || k == 2 || k == 4 || k == 5 || k == 7 || k == 9 || k == 11)
-            majKey+= chromaticS[tonic] + " ";
-      }
-      reset();
-      return majKey;
-   }
-
-   //Gets key as an int for looping
-   private String decodeMajFlats(int tonic)
-   {
-      String majKey = "";
-      for(k = 0; k < MAX_SIZE; k++, tonic++)
-      {
-         if(k == 0 || k == 2 || k == 4 || k == 5 || k == 7 || k == 9 || k == 11)
-            majKey+= chromaticF[tonic] + " ";
-      }
-      reset();
-      return majKey;
-   }
-
-   private String decodeMajFsharp()
-   {
-      String majKey = "";
-      for(k = 0; k < 7; k++)
-         majKey += fSharp[k] + " ";
-      reset();
-      return majKey;
-   }
-
-   public String displayAllDiatonicChords()
-   {
-      String allChords = "";
-      for(int k = 0; k < circleFifths.length; k++)
-      {
-         if(k < 6)
-            allChords += decodeDiatonicSharps(tonicToInt(circleFifths[k])) + 
-            "\n\n";
-         if (k == 7)
-            allChords += decodeDiatonicFsharp() + "\n\n";
-         if(k > 6 && k < circleFifths.length)
-            allChords += decodeDiatonicFlats(tonicToInt(circleFifths[k])) + 
-            "\n\n";
-      }
-      return allChords;
-   }
-
-   public String displayAllKeys()
-   {
-      String allKeys = "";
-      for(int k = 0; k < circleFifths.length; k++)
-      {
-         if(k < 6)
-            allKeys += decodeMajSharps(tonicToInt(circleFifths[k])) + "\n\n";
-         if (k == 7)
-            allKeys += decodeMajFsharp() + "\n\n";
-         if(k > 6 && k < circleFifths.length)
-            allKeys += decodeMajFlats(tonicToInt(circleFifths[k])) + "\n\n";
-      }
-      return allKeys;
-   }
-}
-
-class Decoder 
-{
-   
-}
-/* *****************************************************************************
- diatonic chords, one key
-F# A#min Bmin C# D# E#min 
-
-decode scale:
-Db Eb F Gb Ab Bb C 
-
-
-all keys
-C D E F G A B 
-
-G A B C D E F# 
-
-D E F# G A B C# 
-
-A B C# D E F# G# 
-
-E F# G# A B C# D# 
-
-B C# D# E F# G# A# 
-
-F# G# A# B C# D# E# 
-
-Db Eb F Gb Ab Bb C 
-
-Ab Bb C Db Eb F G 
-
-Eb F G Ab Bb C D 
-
-Bb C D Eb F G A 
-
-F G A Bb C D E 
-
-
-
- diatonic chords, one key
-B C#min D#min E F# G#min A#dim 
-
-All triad chords
-C Dmin Emin F G Amin Bdim 
-
-G Amin Bmin C D Emin F#dim 
-
-D Emin F#min G A Bmin C#dim 
-
-A Bmin C#min D E F#min G#dim 
-
-E F#min G#min A B C#min D#dim 
-
-B C#min D#min E F# G#min A#dim 
-
-F# G#min A#min B C# D#min E#dim 
-
-Db Ebmin Fmin Gb Ab Bbmin Cdim 
-
-Ab Bbmin Cmin Db Eb Fmin Gdim 
-
-Eb Fmin Gmin Ab Bb Cmin Ddim 
-
-Bb Cmin Dmin Eb F Gmin Adim 
-
-F Gmin Amin Bb C Dmin Edim 
-
-**************************************************************************** */
+/* ------------------- run ------------------
+itunes_file.txt
+79
+Carrie Underwood | Cowboy Casanova |  3:56
+Carrie Underwood | Quitter |  3:40
+Rihanna | Russian Roulette |  3:48
+Foo Fighters | All My Life |  4:23
+Foo Fighters | Monkey Wrench |  3:50
+Eric Clapton | Pretending |  4:43
+Eric Clapton | Bad Love |  5:08
+Howlin' Wolf | Everybody's In The Mood |  2:58
+Howlin' Wolf | Well That's All Right |  2:55
+Reverend Gary Davis | Samson and Delilah |  3:36
+Reverend Gary Davis | Twelve Sticks |  3:14
+Roy Buchanan | Hot Cha |  3:28
+Roy Buchanan | Green Onions |  7:23
+Janiva Magness | I'm Just a Prisoner |  3:50
+Janiva Magness | You Were Never Mine |  4:36
+John Lee Hooker | Hobo Blues |  3:07
+John Lee Hooker | I Can't Quit You Baby |  3:02
+Snoop Dogg | That's The Homie |  5:43
+Snoop Dogg | Gangsta Luv |  4:17
+The Rubyz | Ladies and Gentleman |  3:21
+The Rubyz | Watch the Girl |  3:12
+Veggie Tales | Donuts for Benny |  3:04
+Veggie Tales | Our Big Break |  1:09
+Berliner Philharmoniker | Brahms: Symphony No. 1 in C Minor Op. 68 |  13:59
+Berliner Philharmoniker | Brahms: Symphony No. 4 in E Minor Op. 98 |  13:20
+Yo-yo Ma | Bach: Suite for Cello No. 1 in G Major Prelude |  2:21
+Yo-yo Ma | Simple Gifts |  2:34
+Ry Cooter | Alimony |  2:55
+Ry Cooter | France Chance |  2:48
+Aaron Watson | The Road |  3:24
+Terra Incognita | Clone |  4:58
+Terra Incogni | Lizard Skin |  4:30
+Blue Record | Bullhead's Psalm |  1:19
+Blue Record | Ogeechee Hymnal |  2:35
+Mastadon | Oblivion |  5:48
+Mastadon | The Bit |  4:55
+Sean Kingston | Fire Burning |  3:59
+Sean Kingston | My Girlfriend |  3:24
+T-Pain | Take Your Shirt Off |  3:48
+Lil Jon | Give It All U Got |  3:38
+Jay-Z | What We Talkin' About |  4:03
+Jay-Z | Empire State of Mind |  4:36
+Snoop Dog | Think About It |  3:37
+Snoop Dog | Lil' Crips |  3:15
+Jeff Golub | Shuffleboard |  3:30
+Jeff Golub | Goin' On |  5:56
+Jeff Golub | Fish Fare |  4:59
+Caraivana | Noites Cariocas |  4:12
+Caraivana | Tico-Tico No Fuba |  2:27
+John Patitucci | Monk/Trane |  7:14
+John Patitucci | Sonny Side |  7:25
+Nina Simone | Pirate Jenny |  6:42
+Nina Simone | The Other Woman |  3:06
+Nina Simone | Feeling Good |  2:57
+John Coltrane | A Love Supreme Part 1 |  7:42
+John Coltrane | In a Sentimental Mood |  4:16
+AOL Dejando Huellas | Dime Si te Vas Con El |  3:24
+AOL Dejando Huella | Te Amo Tanto |  3:12
+McCoy Tyner | Blues On the Corner |  6:07
+McCoy Tyner | Afro Blue |  12:22
+Kanye West | Stronger |  5:11
+Kanye West | Good Life |  3:27
+Steely Dan | Black Cow |  5:10
+Steely Dan | Kid Charlemagne |  4:38
+Steely Dan | Haitian Divorce |  5:51
+Herbie Hancock | Nefertiti |  7:31
+Herbie Hancock | Rockit |  5:25
+Herbie Hancock | Chameleon |  15:41
+Return to Forever | Medieval Overture |  5:13
+Suzanne Vega | Luka |  3:51
+Suzanne Vega | Small Blue Thing |  3:55
+Bonnie Raitt | Something to Talk About |  3:47
+Bonnie Raitt | I Can't Make You Love Me |  5:31
+Natalie Cole | This Will Be |  2:51
+Natalie Cole | Unforgettable |  3:31
+Jet | Timothy |  4:20
+Jet | Rip It Up |  3:20
+Was (Not Was) | Where Did Your Heart Go? |  5:47
+Was (Not Was) | I Blew Up The United States |  3:50
+
+Veggie Tales | Our Big Break |  1:09
+Blue Record | Bullhead's Psalm |  1:19
+Yo-yo Ma | Bach: Suite for Cello No. 1 in G Major Prelude |  2:21
+Caraivana | Tico-Tico No Fuba |  2:27
+Yo-yo Ma | Simple Gifts |  2:34
+Blue Record | Ogeechee Hymnal |  2:35
+Ry Cooter | France Chance |  2:48
+Natalie Cole | This Will Be |  2:51
+Howlin' Wolf | Well That's All Right |  2:55
+Ry Cooter | Alimony |  2:55
+Nina Simone | Feeling Good |  2:57
+Howlin' Wolf | Everybody's In The Mood |  2:58
+John Lee Hooker | I Can't Quit You Baby |  3:02
+Veggie Tales | Donuts for Benny |  3:04
+Nina Simone | The Other Woman |  3:06
+John Lee Hooker | Hobo Blues |  3:07
+The Rubyz | Watch the Girl |  3:12
+AOL Dejando Huella | Te Amo Tanto |  3:12
+Reverend Gary Davis | Twelve Sticks |  3:14
+Snoop Dog | Lil' Crips |  3:15
+Jet | Rip It Up |  3:20
+The Rubyz | Ladies and Gentleman |  3:21
+Aaron Watson | The Road |  3:24
+Sean Kingston | My Girlfriend |  3:24
+AOL Dejando Huellas | Dime Si te Vas Con El |  3:24
+Kanye West | Good Life |  3:27
+Roy Buchanan | Hot Cha |  3:28
+Jeff Golub | Shuffleboard |  3:30
+Natalie Cole | Unforgettable |  3:31
+Reverend Gary Davis | Samson and Delilah |  3:36
+Snoop Dog | Think About It |  3:37
+Lil Jon | Give It All U Got |  3:38
+Carrie Underwood | Quitter |  3:40
+Bonnie Raitt | Something to Talk About |  3:47
+Rihanna | Russian Roulette |  3:48
+T-Pain | Take Your Shirt Off |  3:48
+Foo Fighters | Monkey Wrench |  3:50
+Janiva Magness | I'm Just a Prisoner |  3:50
+Was (Not Was) | I Blew Up The United States |  3:50
+Suzanne Vega | Luka |  3:51
+Suzanne Vega | Small Blue Thing |  3:55
+Carrie Underwood | Cowboy Casanova |  3:56
+Sean Kingston | Fire Burning |  3:59
+Jay-Z | What We Talkin' About |  4:03
+Caraivana | Noites Cariocas |  4:12
+John Coltrane | In a Sentimental Mood |  4:16
+Snoop Dogg | Gangsta Luv |  4:17
+Jet | Timothy |  4:20
+Foo Fighters | All My Life |  4:23
+Terra Incogni | Lizard Skin |  4:30
+Janiva Magness | You Were Never Mine |  4:36
+Jay-Z | Empire State of Mind |  4:36
+Steely Dan | Kid Charlemagne |  4:38
+Eric Clapton | Pretending |  4:43
+Mastadon | The Bit |  4:55
+Terra Incognita | Clone |  4:58
+Jeff Golub | Fish Fare |  4:59
+Eric Clapton | Bad Love |  5:08
+Steely Dan | Black Cow |  5:10
+Kanye West | Stronger |  5:11
+Return to Forever | Medieval Overture |  5:13
+Herbie Hancock | Rockit |  5:25
+Bonnie Raitt | I Can't Make You Love Me |  5:31
+Snoop Dogg | That's The Homie |  5:43
+Was (Not Was) | Where Did Your Heart Go? |  5:47
+Mastadon | Oblivion |  5:48
+Steely Dan | Haitian Divorce |  5:51
+Jeff Golub | Goin' On |  5:56
+McCoy Tyner | Blues On the Corner |  6:07
+Nina Simone | Pirate Jenny |  6:42
+John Patitucci | Monk/Trane |  7:14
+Roy Buchanan | Green Onions |  7:23
+John Patitucci | Sonny Side |  7:25
+Herbie Hancock | Nefertiti |  7:31
+John Coltrane | A Love Supreme Part 1 |  7:42
+McCoy Tyner | Afro Blue |  12:22
+Berliner Philharmoniker | Brahms: Symphony No. 4 in E Minor Op. 98 |  13:20
+Berliner Philharmoniker | Brahms: Symphony No. 1 in C Minor Op. 68 |  13:59
+Herbie Hancock | Chameleon |  15:41
+
+
+Algorithm Elapsed Time: 0 seconds.
+
+------------- */
